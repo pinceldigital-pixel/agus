@@ -1,10 +1,10 @@
 const CACHE_NAME = 'gastos-app-cache-v1';
 const urlsToCache = [
-    '/manifest.json',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
-    '/',
-    '/index.html',
+    'manifest.json',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
+    './',
+    'index.html',
     'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
