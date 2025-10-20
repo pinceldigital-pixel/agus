@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreador de Gastos</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icon-512.png">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Ocultar scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Transiciones suaves para cambio de vista */
+        .view { display: none; }
+        .view.active { display: block; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <div id="app-container" class="max-w-md mx-auto h-[100dvh] bg-slate-50 flex flex-col relative overflow-hidden">
+
+        <!-- Vista Principal: Inicio -->
+        <main id="home-view" class="view active flex-grow p-6 pb-24 overflow-y-auto no-scrollbar">
+            <header class="mb-6 bg-indigo-500 rounded-xl p-6 text-white shadow-lg">
+                <p class="text-indigo-200 text-sm">Gasto total del período</p>
+                <h1 id="total-display" class="text-4xl font-bold">$0.00</h1>
+            </header>
+
+            <section>
+                <h2 class="font-bold mb-4 text-slate-800">Gastos Recientes</h2>
+                <div id="home-expense-list" class="space-y-3">
+                    <!-- Los gastos se insertarán aquí dinámicamente -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Vista: Historial (Nuevo Diseño) -->
+        <main id="history-view" class="view flex-grow p-6 pb-24 overflow-y-auto no-scrollbar">
+            <h1 class="text-2xl font-bold mb-6 text-slate-900">Análisis de Gastos</h1>
+            
+            <!-- Filtro de Fechas -->
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+                <h2 class="font-semibold mb-3 text-slate-700">Filtrar por rango de fechas</h2>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="start-date" class="text-xs text-slate-500">Desde</label>
+                        <input type="date" id="start-date" class="w-full bg-slate-100 p-2 rounded-lg text-sm font-semibold focus:outline-none mt-1">
+                    </div>
+                    <div>
+                        <label for="end-date" class="text-xs text-slate-500">Hasta</label>
+                        <input type="date" id="end-date" class="w-full bg-slate-100 p-2 rounded-lg text-sm font-semibold focus:outline-none mt-1">
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button id="apply-filter-btn" class="w-full py-3 bg-indigo-500 text-white font-bold rounded-lg transition-transform active:scale-95">Aplicar Filtro</button>
+                    <button id="clear-filter-btn" class="w-full py-3 bg-slate-200 text-slate-700 font-bold rounded-lg transition-transform active:scale-95">Limpiar</button>
+                </div>
+            </div>
+
+            <!-- Resumen por Categoría -->
+            <section id="category-summary-section">
+                <h2 class="font-bold mb-4 text-slate-800">Resumen por Categoría</h2>
+                <div id="category-summary-total" class="bg-slate-800 text-white p-4 rounded-xl mb-4 shadow-lg">
+                    <p class="text-slate-300 text-sm">Total del Período</p>
+                    <p id="summary-total" class="text-3xl font-bold">$0.00</p>
+                </div>
+                <div id="category-summary-list" class="space-y-3">
+                    <!-- Los resúmenes de categoría se insertarán aquí -->
+                </div>
+            </section>
+        </main>
+        
+        <!-- Botón para Agregar Gasto -->
+        <button id="add-expense-btn" class="absolute bottom-24 right-6 bg-indigo-500 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 transition-transform active:scale-95">
+            <i class="ph-bold ph-plus text-3xl"></i>
+        </button>
+
+        <!-- Navegación Inferior -->
+        <nav class="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 h-20 flex justify-around items-center rounded-t-2xl px-4">
+            <button data-view="home" class="nav-btn flex-1 p-2 rounded-lg transition-colors">
+                <div class="flex flex-col items-center gap-1">
+                    <i class="ph-bold ph-house text-2xl"></i>
+                    <span class="text-xs">Inicio</span>
+                </div>
+            </button>
+            <button data-view="history" class="nav-btn flex-1 p-2 rounded-lg transition-colors">
+                <div class="flex flex-col items-center gap-1">
+                    <i class="ph-bold ph-chart-bar text-2xl"></i>
+                    <span class="text-xs">Historial</span>
+                </div>
+            </button>
+        </nav>
+
+        <!-- Modal para Agregar Gasto -->
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+            <div id="modal-content" class="bg-slate-100 w-full max-w-md p-6 rounded-t-2xl transform translate-y-full transition-transform duration-300">
+                <h2 class="text-xl font-bold mb-6">Nuevo Gasto</h2>
+                <form id="expense-form">
+                    <!-- Campos de Importe y Nota (sin cambios) -->
+                     <div class="mb-4">
+                        <label for="amount" class="text-slate-600 text-sm font-semibold">Importe</label>
+                        <input type="number" id="amount" placeholder="0.00" step="0.01" required class="w-full mt-1 p-3 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    </div>
+                    <div class="mb-4">
+                        <label for="note" class="text-slate-600 text-sm font-semibold">Nota (Opcional)</label>
+                        <input type="text" id="note" placeholder="Ej: Café con amigos" class="w-full mt-1 p-3 bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    </div>
+                    <!-- Nuevas Categorías -->
+                    <div class="mb-6">
+                        <label class="text-slate-600 text-sm font-semibold mb-2 block">Categoría</label>
+                        <div id="category-options-container" class="grid grid-cols-3 gap-3 text-center">
+                            <!-- Categorías se insertarán aquí -->
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <button type="button" id="cancel-btn" class="w-full py-3 bg-slate-300 text-slate-800 font-bold rounded-lg">Cancelar</button>
+                        <button type="submit" class="w-full py-3 bg-indigo-500 text-white font-bold rounded-lg">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmación para Eliminar (sin cambios) -->
+        <div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+             <div class="bg-white w-full max-w-xs p-6 rounded-2xl shadow-lg text-center">
+                <h3 class="text-lg font-bold mb-2 text-slate-800">¿Estás seguro?</h3>
+                <p class="text-slate-500 mb-6">Esta acción no se puede deshacer.</p>
+                <div class="flex gap-4">
+                    <button type="button" id="cancel-delete-btn" class="w-full py-3 bg-slate-200 text-slate-800 font-bold rounded-lg">Cancelar</button>
+                    <button type="button" id="confirm-delete-btn" class="w-full py-3 bg-rose-500 text-white font-bold rounded-lg">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Service Worker Registration
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW reg. error: ', err));
+                });
+            }
+
+            const state = {
+                expenses: JSON.parse(localStorage.getItem('expenses')) || [],
+                currentView: 'home'
+            };
+
+            const categoryInfo = {
+                'Hogar': { icon: 'couch', color: 'text-cyan-500', bgColor: 'bg-cyan-100', progressColor: 'bg-cyan-500' },
+                'Transporte': { icon: 'car', color: 'text-violet-500', bgColor: 'bg-violet-100', progressColor: 'bg-violet-500' },
+                'Comida': { icon: 'hamburger', color: 'text-orange-500', bgColor: 'bg-orange-100', progressColor: 'bg-orange-500' },
+                'Ocio': { icon: 'game-controller', color: 'text-lime-500', bgColor: 'bg-lime-100', progressColor: 'bg-lime-500' },
+                'Otros': { icon: 'shopping-bag-open', color: 'text-rose-500', bgColor: 'bg-rose-100', progressColor: 'bg-rose-500' }
+            };
+
+            // Elementos del DOM
+            const totalDisplay = document.getElementById('total-display');
+            const homeExpenseList = document.getElementById('home-expense-list');
+            const startDateInput = document.getElementById('start-date');
+            const endDateInput = document.getElementById('end-date');
+            const applyFilterBtn = document.getElementById('apply-filter-btn');
+            const clearFilterBtn = document.getElementById('clear-filter-btn');
+            const summaryTotal = document.getElementById('summary-total');
+            const categorySummaryList = document.getElementById('category-summary-list');
+            const categoryOptionsContainer = document.getElementById('category-options-container');
+
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            const addExpenseBtn = document.getElementById('add-expense-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const expenseForm = document.getElementById('expense-form');
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+            let expenseToDeleteId = null;
+            
+            // --- FUNCIONES ---
+
+            const saveState = () => {
+                localStorage.setItem('expenses', JSON.stringify(state.expenses));
+            };
+
+            const getFilteredExpenses = () => {
+                 const startDate = startDateInput.value ? new Date(startDateInput.value + 'T00:00:00') : null;
+                const endDate = endDateInput.value ? new Date(endDateInput.value + 'T23:59:59') : null;
+
+                return state.expenses.filter(e => {
+                    const expenseDate = new Date(e.date);
+                    if (startDate && !isNaN(startDate) && expenseDate < startDate) return false;
+                    if (endDate && !isNaN(endDate) && expenseDate > endDate) return false;
+                    return true;
+                }).sort((a, b) => new Date(b.date) - new Date(a, b));
+            }
+
+            const render = () => {
+                const filteredExpenses = getFilteredExpenses();
+                renderHomeList(filteredExpenses);
+                renderCategorySummary(filteredExpenses);
+            };
+            
+            const renderHomeList = (expenses) => {
+                const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+                totalDisplay.textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+
+                homeExpenseList.innerHTML = '';
+                 if (expenses.length === 0) {
+                    homeExpenseList.innerHTML = '<p class="text-center text-slate-500 mt-8">Aún no tienes gastos. ¡Agrega el primero!</p>';
+                } else {
+                    expenses.slice(0, 15).forEach(expense => { // Mostrar solo los últimos 15 por ejemplo
+                        const info = categoryInfo[expense.category];
+                        const expenseEl = document.createElement('div');
+                        expenseEl.className = 'expense-item bg-white p-4 rounded-xl flex items-center justify-between shadow-sm';
+                        expenseEl.dataset.id = expense.id;
+                        expenseEl.innerHTML = `
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center ${info.bgColor} ${info.color}">
+                                    <i class="ph-bold ph-${info.icon} text-2xl"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold">${expense.note || expense.category}</p>
+                                    <p class="text-sm text-slate-500">${new Date(expense.date).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <p class="font-bold text-slate-800">-$${expense.amount.toLocaleString('es-AR', {minimumFractionDigits: 2})}</p>
+                                <button class="delete-btn text-slate-400 hover:text-rose-500 transition-colors">
+                                    <i class="ph-bold ph-trash text-xl"></i>
+                                </button>
+                            </div>
+                        `;
+                        homeExpenseList.appendChild(expenseEl);
+                    });
+                }
+            };
+            
+            const renderCategorySummary = (expenses) => {
+                const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+                summaryTotal.textContent = `$${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+                
+                categorySummaryList.innerHTML = '';
+                
+                if (total === 0) {
+                    categorySummaryList.innerHTML = '<p class="text-center text-slate-500 mt-8">No hay datos para mostrar en este período.</p>';
+                    return;
+                }
+
+                const categoryTotals = {};
+                for (const category in categoryInfo) {
+                    categoryTotals[category] = 0;
+                }
+                expenses.forEach(e => {
+                    if (categoryTotals.hasOwnProperty(e.category)) {
+                        categoryTotals[e.category] += e.amount;
+                    }
+                });
+
+                Object.entries(categoryTotals).forEach(([category, catTotal]) => {
+                    if (catTotal > 0) {
+                        const info = categoryInfo[category];
+                        const percentage = (catTotal / total) * 100;
+                        const summaryEl = document.createElement('div');
+                        summaryEl.className = 'bg-white p-4 rounded-xl shadow-sm';
+                        summaryEl.innerHTML = `
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center ${info.bgColor} ${info.color}">
+                                        <i class="ph-bold ph-${info.icon} text-xl"></i>
+                                    </div>
+                                    <span class="font-bold">${category}</span>
+                                </div>
+                                <span class="font-bold text-slate-800">$${catTotal.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2">
+                                <div class="${info.progressColor} h-2 rounded-full" style="width: ${percentage.toFixed(1)}%"></div>
+                            </div>
+                            <p class="text-right text-xs text-slate-500 mt-1">${percentage.toFixed(1)}% del total</p>
+                        `;
+                        categorySummaryList.appendChild(summaryEl);
+                    }
+                });
+            };
+
+            const switchView = (viewName) => {
+                state.currentView = viewName;
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(`${viewName}-view`).classList.add('active');
+
+                navButtons.forEach(btn => {
+                    const content = btn.querySelector('div');
+                    if (btn.dataset.view === viewName) {
+                        btn.classList.add('bg-indigo-100');
+                        content.classList.add('text-indigo-600');
+                        content.querySelector('span').classList.add('font-bold');
+                        content.querySelector('i').classList.add('ph-fill');
+                    } else {
+                        btn.classList.remove('bg-indigo-100');
+                        content.classList.remove('text-indigo-600');
+                        content.querySelector('span').classList.remove('font-bold');
+                        content.querySelector('i').classList.remove('ph-fill');
+                    }
+                });
+                addExpenseBtn.style.display = viewName === 'home' ? 'flex' : 'none';
+            };
+
+            const openModal = () => {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modalContent.classList.remove('translate-y-full');
+            };
+
+            const closeModal = () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modalContent.classList.add('translate-y-full');
+                expenseForm.reset();
+                document.querySelectorAll('.category-item').forEach(item => item.classList.remove('border-indigo-500', 'bg-indigo-50'));
+                const firstCat = document.querySelector('.category-item');
+                if (firstCat) {
+                    firstCat.parentElement.querySelector('input').checked = true;
+                    firstCat.classList.add('border-indigo-500', 'bg-indigo-50');
+                }
+            };
+            
+            const addExpense = (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('amount').value);
+                const note = document.getElementById('note').value;
+                const category = document.querySelector('input[name="category"]:checked').value;
+                
+                const newExpense = { id: Date.now(), amount, note, category, date: new Date().toISOString() };
+                state.expenses.push(newExpense);
+                saveState();
+                render();
+                closeModal();
+            };
+
+            const openDeleteModal = (id) => {
+                expenseToDeleteId = id;
+                deleteConfirmModal.classList.remove('opacity-0', 'pointer-events-none');
+            };
+
+            const closeDeleteModal = () => {
+                expenseToDeleteId = null;
+                deleteConfirmModal.classList.add('opacity-0', 'pointer-events-none');
+            };
+
+            const deleteExpense = () => {
+                if (!expenseToDeleteId) return;
+                state.expenses = state.expenses.filter(e => e.id !== expenseToDeleteId);
+                saveState();
+                render();
+                closeDeleteModal();
+            };
+
+            const populateCategoryOptions = () => {
+                categoryOptionsContainer.innerHTML = '';
+                Object.entries(categoryInfo).forEach(([name, info], index) => {
+                    const label = document.createElement('label');
+                    label.className = 'cursor-pointer';
+                    label.innerHTML = `
+                        <input type="radio" name="category" value="${name}" class="sr-only" ${index === 0 ? 'checked' : ''}>
+                        <div class="category-item p-2 rounded-lg bg-white border-2 border-slate-200" data-category="${name}">
+                            <i class="ph-bold ph-${info.icon} text-2xl ${info.color}"></i>
+                            <span class="text-xs block mt-1">${name}</span>
+                        </div>
+                    `;
+                    categoryOptionsContainer.appendChild(label);
+                });
+
+                document.querySelectorAll('.category-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('.category-item').forEach(i => i.classList.remove('border-indigo-500', 'bg-indigo-50'));
+                        item.classList.add('border-indigo-500', 'bg-indigo-50');
+                    });
+                });
+            };
+
+
+            // --- EVENT LISTENERS ---
+            
+            navButtons.forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+            addExpenseBtn.addEventListener('click', openModal);
+            cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+            expenseForm.addEventListener('submit', addExpense);
+            applyFilterBtn.addEventListener('click', render);
+            clearFilterBtn.addEventListener('click', () => {
+                setDefaultDates();
+                render();
+            });
+
+            homeExpenseList.addEventListener('click', (e) => {
+                const deleteButton = e.target.closest('.delete-btn');
+                if (deleteButton) {
+                    const expenseId = parseInt(e.target.closest('.expense-item').dataset.id, 10);
+                    openDeleteModal(expenseId);
+                }
+            });
+
+            confirmDeleteBtn.addEventListener('click', deleteExpense);
+            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+            // --- INICIALIZACIÓN ---
+            
+            const setDefaultDates = () => {
+                const today = new Date();
+                const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDateInput.valueAsDate = today;
+                startDateInput.valueAsDate = firstDayOfMonth;
+            };
+
+            populateCategoryOptions();
+            setDefaultDates();
+            switchView('home');
+            render();
+            const firstCat = document.querySelector('.category-item');
+            if (firstCat) firstCat.classList.add('border-indigo-500', 'bg-indigo-50');
+        });
+    </script>
+</body>
+</html>
