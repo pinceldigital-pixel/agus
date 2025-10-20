@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .hidden { display: none !important; }
@@ -476,5 +477,36 @@
             init();
         });
     </script>
+
+<button id="instalar-btn" class="fixed bottom-24 left-8 bg-gray-900 text-white px-3 py-2 rounded-xl shadow-lg text-sm hidden">
+  Instalar
+</button>
+
+<script>
+let deferredPrompt;
+const instalarBtn = document.getElementById('instalar-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  instalarBtn?.classList.remove('hidden');
+});
+
+instalarBtn?.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  instalarBtn.disabled = true;
+  try {
+    await deferredPrompt.prompt();
+  } finally {
+    deferredPrompt = null;
+    instalarBtn.classList.add('hidden');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('PWA instalada');
+});
+</script>
+
 </body>
 </html>
